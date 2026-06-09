@@ -232,19 +232,38 @@ function isPast(date,time) {
   if (date!==todayStr()) return date<todayStr();
   return time<=new Date().toTimeString().slice(0,5);
 }
-// ── Persistence (shared storage via API route) ─────────
+
+// ── Persistence (hybrid: local cache + server source of truth) ─
+const CACHE_BOOKINGS = "padel_cache_bookings";
+const CACHE_PLAYERS  = "padel_cache_players";
+
+function loadCache() {
+  try {
+    const b = localStorage.getItem(CACHE_BOOKINGS);
+    const p = localStorage.getItem(CACHE_PLAYERS);
+    if (b) state.bookings = JSON.parse(b);
+    if (p) state.players  = JSON.parse(p);
+    return !!(b || p);
+  } catch(e) { return false; }
+}
+function saveCache() {
+  try {
+    localStorage.setItem(CACHE_BOOKINGS, JSON.stringify(state.bookings));
+    localStorage.setItem(CACHE_PLAYERS,  JSON.stringify(state.players));
+  } catch(e) {}
+}
+
 async function loadData() {
   try {
     const [rb, rp] = await Promise.all([
-      fetch("/api/storage?key=" + STORAGE_KEY_BOOKINGS).then(r => r.json()),
-      fetch("/api/storage?key=" + STORAGE_KEY_PLAYERS).then(r => r.json()),
+      fetch("/api/storage?key="+STORAGE_KEY_BOOKINGS).then(r=>r.json()),
+      fetch("/api/storage?key="+STORAGE_KEY_PLAYERS).then(r=>r.json()),
     ]);
-    // Upstash may return data already parsed as objects,
-    // so only JSON.parse when it's still a string
     const parse = v => typeof v === "string" ? JSON.parse(v) : v;
     if (rb.value) state.bookings = parse(rb.value);
     if (rp.value) state.players  = parse(rp.value);
-  } catch (e) { console.warn("Load failed", e); }
+    saveCache();
+  } catch(e) { console.warn("Load failed", e); }
 }
 async function saveBookings() {
   try {
@@ -294,25 +313,46 @@ function showToast(msg) {
 
 // ── Actions ──────────────────────────────────────────────
 async function handleBook(slot) {
-  state.bookings = state.bookings.filter(b=>
-    !(b.date===slot.date&&b.court===slot.court&&b.time===slot.time)
-  );
-  state.bookings.push(slot);
+  const wasEdit = !!getBooking(slot.date, slot.court, slot.time);
   state.modal = null;
   render();
-  await saveBookings();
-  notifyBook(slot);
-  showToast("✓ Court booked!");
+  showToast("Booking…");
+  try {
+    const r = await fetch("/api/book", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({action:"book", booking:slot, isUpdate:wasEdit})
+    });
+    const data = await r.json();
+    if (data.bookings) { state.bookings = data.bookings; saveCache(); }
+    render();
+    if (data.conflict) {
+      showToast("⚠️ Sorry, just got booked by someone else!");
+      return;
+    }
+    if (!data.ok) { showToast("⚠️ Booking failed — try again"); return; }
+    notifyBook(slot);
+    showToast("✓ Court booked!");
+  } catch(e) {
+    showToast("⚠️ No connection — booking not saved");
+  }
 }
 async function handleCancel(booking) {
-  state.bookings = state.bookings.filter(b=>
-    !(b.date===booking.date&&b.court===booking.court&&b.time===booking.time)
-  );
   state.modal = null;
   render();
-  await saveBookings();
-  notifyCancel(booking);
-  showToast("Booking cancelled");
+  try {
+    const r = await fetch("/api/book", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({action:"cancel", booking})
+    });
+    const data = await r.json();
+    if (data.bookings) { state.bookings = data.bookings; saveCache(); }
+    render();
+    if (!data.ok) { showToast("⚠️ Cancel failed — try again"); return; }
+    notifyCancel(booking);
+    showToast("Booking cancelled");
+  } catch(e) {
+    showToast("⚠️ No connection — try again");
+  }
 }
 async function handleSavePlayers(list) {
   state.players = list;
@@ -577,14 +617,29 @@ function attachEvents() {
 
 // ── Boot ─────────────────────────────────────────────────
 (async function() {
+  // 1. Instant render from local cache (if any)
+  const hadCache = loadCache();
+  if (hadCache) render();
+
+  // 2. Refresh from server in the background
   await loadData();
+
   // Auto-add Telegram user to players list
   const tgUser = getTgUser();
   if (tgUser && !state.players.includes(tgUser)) {
     state.players.unshift(tgUser);
     await savePlayers();
+    saveCache();
   }
   render();
+
+  // 3. Re-sync whenever the app regains focus (someone else may have booked)
+  document.addEventListener("visibilitychange", async () => {
+    if (document.visibilityState === "visible") {
+      await loadData();
+      render();
+    }
+  });
 })();
 </script>
 </body>
