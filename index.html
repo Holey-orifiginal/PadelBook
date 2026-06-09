@@ -232,17 +232,19 @@ function isPast(date,time) {
   if (date!==todayStr()) return date<todayStr();
   return time<=new Date().toTimeString().slice(0,5);
 }
-
-// ── Persistence (localStorage via API route) ─────────────
+// ── Persistence (shared storage via API route) ─────────
 async function loadData() {
   try {
     const [rb, rp] = await Promise.all([
-      fetch("/api/storage?key="+STORAGE_KEY_BOOKINGS).then(r=>r.json()),
-      fetch("/api/storage?key="+STORAGE_KEY_PLAYERS).then(r=>r.json()),
+      fetch("/api/storage?key=" + STORAGE_KEY_BOOKINGS).then(r => r.json()),
+      fetch("/api/storage?key=" + STORAGE_KEY_PLAYERS).then(r => r.json()),
     ]);
-    if (rb.value) state.bookings = JSON.parse(rb.value);
-    if (rp.value) state.players  = JSON.parse(rp.value);
-  } catch(e) { console.warn("Load failed", e); }
+    // Upstash may return data already parsed as objects,
+    // so only JSON.parse when it's still a string
+    const parse = v => typeof v === "string" ? JSON.parse(v) : v;
+    if (rb.value) state.bookings = parse(rb.value);
+    if (rp.value) state.players  = parse(rp.value);
+  } catch (e) { console.warn("Load failed", e); }
 }
 async function saveBookings() {
   try {
