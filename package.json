@@ -1,0 +1,8 @@
+{
+  "name": "padel-miniapp",
+  "version": "1.0.0",
+  "description": "Padel court booking Telegram Mini App",
+  "dependencies": {
+    "@vercel/kv": "^1.0.0"
+  }
+}

@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>PadelBook</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --green-deep: #1A6B3A;
+      --green-lime: #C8F04A;
+      --sand: #F5F0E8;
+      --slate: #1C2B2B;
+      --mid: #4A6B5A;
+      --muted: #7AAA8A;
+      --border: #D8D0C4;
+    }
+    html, body { height: 100%; background: var(--slate); font-family: 'Inter', sans-serif; color: var(--slate); }
+    body { overflow-x: hidden; }
+
+    #app { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* Header */
+    .header {
+      background: linear-gradient(180deg, var(--green-deep) 0%, var(--slate) 100%);
+      padding: 16px 16px 0;
+      flex-shrink: 0;
+    }
+    .header-top { display: flex; justify-content: space-between; align-items: center; }
+    .header-logo { font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 24px; color: var(--green-lime); letter-spacing: -0.5px; }
+    .header-sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .btn-players {
+      background: rgba(200,240,74,0.13); border: 1.5px solid rgba(200,240,74,0.3);
+      color: var(--green-lime); border-radius: 10px; padding: 7px 13px;
+      font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
+    }
+    .tabs { display: flex; gap: 4px; margin-top: 16px; }
+    .tab {
+      flex: 1; padding: 10px 0; border-radius: 10px 10px 0 0; border: none;
+      font-weight: 700; font-size: 14px; cursor: pointer; transition: all .15s;
+      background: transparent; color: var(--muted);
+    }
+    .tab.active { background: var(--sand); color: var(--green-deep); }
+
+    /* Content */
+    .content { background: var(--sand); flex: 1; padding-bottom: 32px; }
+
+    /* Date strip */
+    .date-strip { display: flex; gap: 6px; overflow-x: auto; padding: 14px 14px 10px; scrollbar-width: none; }
+    .date-strip::-webkit-scrollbar { display: none; }
+    .date-btn {
+      flex: 0 0 auto; width: 52px; padding: 9px 4px; border-radius: 12px;
+      border: 2px solid var(--border); background: white;
+      cursor: pointer; text-align: center; position: relative; transition: all .15s;
+    }
+    .date-btn.selected { border-color: var(--green-deep); border-width: 2.5px; background: var(--green-deep); }
+    .date-label { font-size: 9px; font-weight: 700; color: var(--muted); margin-bottom: 2px; }
+    .date-btn.selected .date-label { color: var(--green-lime); }
+    .date-num { font-family: 'Space Grotesk', sans-serif; font-weight: 800; font-size: 17px; color: var(--slate); }
+    .date-btn.selected .date-num { color: white; }
+    .date-dot { position: absolute; top: 4px; right: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--green-deep); }
+    .date-btn.selected .date-dot { background: var(--green-lime); }
+
+    /* Court section */
+    .court-section { padding: 0 14px 14px; }
+    .court-title {
+      font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 14px;
+      color: var(--slate); margin-bottom: 8px; display: flex; align-items: center; gap: 6px;
+    }
+    .court-dot { width: 10px; height: 10px; border-radius: 3px; background: var(--green-deep); display: inline-block; }
+    .slots { display: flex; flex-wrap: wrap; gap: 6px; }
+    .slot {
+      padding: 7px 9px; border-radius: 8px; border: 1.5px solid var(--border);
+      background: white; color: var(--slate); font-size: 12px; font-weight: 600;
+      cursor: pointer; min-width: 54px; text-align: center; transition: all .12s;
+    }
+    .slot.booked { border-color: var(--green-deep); background: var(--green-deep); color: var(--green-lime); }
+    .slot.past { border-color: #E0D8CC; background: #EDE8E0; color: #B0A898; cursor: default; }
+    .slot-sub { font-size: 9px; font-weight: 700; margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 50px; color: #7AFFB0; }
+
+    /* Upcoming */
+    .upcoming-list { padding: 14px; }
+    .booking-card {
+      background: white; border-radius: 14px; padding: 14px 16px;
+      margin-bottom: 10px; border: 1.5px solid var(--border); border-left: 4px solid var(--green-deep);
+    }
+    .booking-top { display: flex; justify-content: space-between; align-items: flex-start; }
+    .booking-court { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 15px; color: var(--slate); }
+    .booking-time { color: var(--mid); font-size: 13px; margin-top: 2px; }
+    .btn-edit {
+      background: #F0EDE8; border: none; border-radius: 8px;
+      padding: 5px 11px; font-size: 12px; font-weight: 600; color: var(--green-deep); cursor: pointer;
+    }
+    .player-tags { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 5px; }
+    .player-tag {
+      background: #E8F5EE; color: var(--green-deep); border-radius: 50px;
+      padding: 3px 10px; font-size: 12px; font-weight: 600;
+    }
+    .booking-note { margin-top: 6px; font-size: 12px; color: var(--muted); font-style: italic; }
+    .empty-state { text-align: center; padding: 48px 20px; color: var(--muted); font-size: 15px; }
+    .empty-icon { font-size: 40px; margin-bottom: 12px; }
+
+    /* Modal overlay */
+    .overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 50;
+      display: flex; align-items: flex-end; justify-content: center;
+    }
+    .modal {
+      background: var(--sand); border-radius: 20px 20px 0 0;
+      width: 100%; max-width: 480px; padding: 24px 20px 40px;
+      max-height: 90vh; overflow-y: auto;
+    }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .modal-title { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 18px; color: var(--slate); }
+    .modal-sub { font-size: 13px; color: var(--mid); margin-top: 2px; }
+    .btn-close { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--mid); }
+    .section-label { font-size: 11px; font-weight: 700; color: var(--mid); letter-spacing: 1px; margin-bottom: 8px; }
+    .player-select { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .player-btn {
+      padding: 7px 14px; border-radius: 50px; border: 2px solid var(--border);
+      background: white; color: var(--mid); font-weight: 600; font-size: 14px; cursor: pointer; transition: all .15s;
+    }
+    .player-btn.selected { border-color: var(--green-deep); background: var(--green-deep); color: var(--green-lime); }
+    .note-input {
+      width: 100%; padding: 10px 14px; border-radius: 10px; border: 2px solid var(--border);
+      font-size: 14px; color: var(--slate); background: white; margin-bottom: 18px; font-family: 'Inter', sans-serif;
+    }
+    .note-input:focus { outline: none; border-color: var(--green-deep); }
+    .modal-actions { display: flex; gap: 10px; }
+    .btn-cancel-booking {
+      flex: 1; padding: 13px; border-radius: 12px; border: 2px solid #e06060;
+      background: white; color: #e06060; font-weight: 700; font-size: 15px; cursor: pointer;
+    }
+    .btn-book {
+      flex: 2; padding: 13px; border-radius: 12px; border: none;
+      background: var(--green-deep); color: var(--green-lime);
+      font-weight: 700; font-size: 15px; cursor: pointer; transition: background .15s;
+    }
+    .btn-book:disabled { background: #C8D8C8; color: #888; cursor: default; }
+    .btn-save {
+      width: 100%; padding: 13px; border-radius: 12px; border: none;
+      background: var(--green-deep); color: var(--green-lime); font-weight: 700; font-size: 15px; cursor: pointer;
+    }
+
+    /* Players list */
+    .player-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 14px; background: white; border-radius: 10px;
+      border: 1.5px solid var(--border); margin-bottom: 8px;
+    }
+    .player-name { font-weight: 600; color: var(--slate); }
+    .btn-remove { background: none; border: none; color: #e06060; font-size: 18px; cursor: pointer; }
+    .add-row { display: flex; gap: 8px; margin-bottom: 14px; }
+    .add-input {
+      flex: 1; padding: 10px 14px; border-radius: 10px; border: 2px solid var(--border);
+      font-size: 14px; color: var(--slate); font-family: 'Inter', sans-serif;
+    }
+    .add-input:focus { outline: none; border-color: var(--green-deep); }
+    .btn-add {
+      padding: 10px 18px; border-radius: 10px; background: var(--green-deep);
+      border: none; color: var(--green-lime); font-weight: 700; font-size: 15px; cursor: pointer;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: var(--green-lime); color: var(--slate); font-weight: 700; font-size: 14px;
+      padding: 10px 22px; border-radius: 50px; box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+      z-index: 999; white-space: nowrap; pointer-events: none;
+      animation: toastIn .2s ease;
+    }
+    @keyframes toastIn { from { opacity:0; transform: translateX(-50%) translateY(8px); } to { opacity:1; transform: translateX(-50%) translateY(0); } }
+
+    /* Loading */
+    .loading { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--slate); }
+    .loading-text { color: var(--green-lime); font-family: 'Space Grotesk', sans-serif; font-size: 20px; font-weight: 700; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="loading"><div class="loading-text">🎾 Loading…</div></div>
+</div>
+
+<script>
+// ── Config ───────────────────────────────────────────────
+// Bot token & chat ID live server-side as Vercel env vars (see api/notify.js)
+const COURTS    = ["Court A", "Court B"];
+const SLOTS     = ["07:00","08:00","09:00","10:00","11:00","12:00",
+                   "13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00","21:00"];
+const STORAGE_KEY_BOOKINGS = "padel_bookings_v1";
+const STORAGE_KEY_PLAYERS  = "padel_players_v1";
+
+// ── Telegram WebApp ──────────────────────────────────────
+const tg = window.Telegram?.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+
+function getTgUser() {
+  const u = tg?.initDataUnsafe?.user;
+  return u ? (u.first_name + (u.last_name ? " " + u.last_name : "")) : null;
+}
+
+// ── State ────────────────────────────────────────────────
+let state = {
+  tab: "book",
+  date: todayStr(),
+  bookings: [],
+  players: ["Alice","Bob","Carlos","Diana"],
+  modal: null,       // {date, court, time} or "players"
+  toastMsg: null,
+  toastTimer: null,
+};
+
+// ── Helpers ──────────────────────────────────────────────
+function todayStr() {
+  return new Date().toISOString().slice(0,10);
+}
+function fmtDate(d) {
+  return new Date(d+"T12:00:00").toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"});
+}
+function next7() {
+  return Array.from({length:7},(_,i)=>{
+    const d=new Date(); d.setDate(d.getDate()+i);
+    return d.toISOString().slice(0,10);
+  });
+}
+function getBooking(date,court,time) {
+  return state.bookings.find(b=>b.date===date&&b.court===court&&b.time===time);
+}
+function isPast(date,time) {
+  if (date!==todayStr()) return date<todayStr();
+  return time<=new Date().toTimeString().slice(0,5);
+}
+
+// ── Persistence (localStorage via API route) ─────────────
+async function loadData() {
+  try {
+    const [rb, rp] = await Promise.all([
+      fetch("/api/storage?key="+STORAGE_KEY_BOOKINGS).then(r=>r.json()),
+      fetch("/api/storage?key="+STORAGE_KEY_PLAYERS).then(r=>r.json()),
+    ]);
+    if (rb.value) state.bookings = JSON.parse(rb.value);
+    if (rp.value) state.players  = JSON.parse(rp.value);
+  } catch(e) { console.warn("Load failed", e); }
+}
+async function saveBookings() {
+  try {
+    await fetch("/api/storage", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({key: STORAGE_KEY_BOOKINGS, value: JSON.stringify(state.bookings)})
+    });
+  } catch(e) { console.warn("Save failed", e); }
+}
+async function savePlayers() {
+  try {
+    await fetch("/api/storage", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({key: STORAGE_KEY_PLAYERS, value: JSON.stringify(state.players)})
+    });
+  } catch(e) { console.warn("Save failed", e); }
+}
+
+// ── Telegram notifications ───────────────────────────────
+async function sendTelegramMsg(text) {
+  try {
+    await fetch("/api/notify", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({text})
+    });
+  } catch(e) { console.warn("Telegram send failed", e); }
+}
+function notifyBook(slot) {
+  const who = getTgUser() || "Someone";
+  const players = slot.players.join(", ");
+  const msg = `🎾 <b>Court Booked!</b>\n\n📅 ${fmtDate(slot.date)} at ${slot.time}\n🏟 ${slot.court}\n👥 ${players}${slot.note ? `\n📝 ${slot.note}` : ""}`;
+  sendTelegramMsg(msg);
+}
+function notifyCancel(booking) {
+  const who = getTgUser() || "Someone";
+  const msg = `❌ <b>Booking Cancelled</b>\n\n📅 ${fmtDate(booking.date)} at ${booking.time}\n🏟 ${booking.court}`;
+  sendTelegramMsg(msg);
+}
+
+// ── Toast ────────────────────────────────────────────────
+function showToast(msg) {
+  if (state.toastTimer) clearTimeout(state.toastTimer);
+  state.toastMsg = msg;
+  render();
+  state.toastTimer = setTimeout(()=>{ state.toastMsg=null; render(); }, 2200);
+}
+
+// ── Actions ──────────────────────────────────────────────
+async function handleBook(slot) {
+  state.bookings = state.bookings.filter(b=>
+    !(b.date===slot.date&&b.court===slot.court&&b.time===slot.time)
+  );
+  state.bookings.push(slot);
+  state.modal = null;
+  render();
+  await saveBookings();
+  notifyBook(slot);
+  showToast("✓ Court booked!");
+}
+async function handleCancel(booking) {
+  state.bookings = state.bookings.filter(b=>
+    !(b.date===booking.date&&b.court===booking.court&&b.time===booking.time)
+  );
+  state.modal = null;
+  render();
+  await saveBookings();
+  notifyCancel(booking);
+  showToast("Booking cancelled");
+}
+async function handleSavePlayers(list) {
+  state.players = list;
+  state.modal = null;
+  render();
+  await savePlayers();
+  showToast("Players saved");
+}
+
+// ── Render ───────────────────────────────────────────────
+function render() {
+  document.getElementById("app").innerHTML = buildApp();
+  attachEvents();
+}
+
+function buildApp() {
+  const days = next7();
+  const upcoming = state.bookings
+    .filter(b=>b.date>=todayStr())
+    .sort((a,b)=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time));
+
+  return `
+    <div class="header">
+      <div class="header-top">
+        <div>
+          <div class="header-logo">🎾 PadelBook</div>
+          <div class="header-sub">Work courts · ${COURTS.length} available</div>
+        </div>
+        <button class="btn-players" id="openPlayers">👥 Players</button>
+      </div>
+      <div class="tabs">
+        <button class="tab ${state.tab==="book"?"active":""}" data-tab="book">Book a Court</button>
+        <button class="tab ${state.tab==="upcoming"?"active":""}" data-tab="upcoming">Upcoming</button>
+      </div>
+    </div>
+
+    <div class="content">
+      ${state.tab==="book" ? buildBookTab(days) : buildUpcomingTab(upcoming)}
+    </div>
+
+    ${state.modal && state.modal!=="players" ? buildBookModal() : ""}
+    ${state.modal==="players" ? buildPlayersModal() : ""}
+    ${state.toastMsg ? `<div class="toast">${state.toastMsg}</div>` : ""}
+  `;
+}
+
+function buildBookTab(days) {
+  const strip = days.map(d=>{
+    const dd = new Date(d+"T12:00:00");
+    const isToday = d===todayStr();
+    const sel = d===state.date;
+    const hasBk = state.bookings.some(b=>b.date===d);
+    return `
+      <button class="date-btn ${sel?"selected":""}" data-date="${d}">
+        <div class="date-label">${isToday?"TODAY":dd.toLocaleDateString("en",{weekday:"short"}).toUpperCase()}</div>
+        <div class="date-num">${dd.getDate()}</div>
+        ${hasBk?`<div class="date-dot"></div>`:""}
+      </button>`;
+  }).join("");
+
+  const courts = COURTS.map(court=>{
+    const slots = SLOTS.map(time=>{
+      const bk = getBooking(state.date,court,time);
+      const past = isPast(state.date,time);
+      const cls = bk?"booked":past?"past":"";
+      return `
+        <button class="slot ${cls}" ${past?"disabled":""} data-court="${court}" data-time="${time}">
+          ${time}
+          ${bk?`<div class="slot-sub">${bk.players[0]}${bk.players.length>1?` +${bk.players.length-1}`:""}</div>`:""}
+        </button>`;
+    }).join("");
+    return `
+      <div class="court-section">
+        <div class="court-title"><span class="court-dot"></span>${court}</div>
+        <div class="slots">${slots}</div>
+      </div>`;
+  }).join("");
+
+  return `<div class="date-strip">${strip}</div>${courts}`;
+}
+
+function buildUpcomingTab(upcoming) {
+  if (!upcoming.length) return `
+    <div class="upcoming-list">
+      <div class="empty-state">
+        <div class="empty-icon">🎾</div>
+        No upcoming bookings.<br>Head to Book a Court to get started.
+      </div>
+    </div>`;
+  return `<div class="upcoming-list">${upcoming.map(b=>`
+    <div class="booking-card">
+      <div class="booking-top">
+        <div>
+          <div class="booking-court">${b.court}</div>
+          <div class="booking-time">${fmtDate(b.date)} · ${b.time}</div>
+        </div>
+        <button class="btn-edit" data-court="${b.court}" data-date="${b.date}" data-time="${b.time}">Edit</button>
+      </div>
+      <div class="player-tags">${b.players.map(p=>`<span class="player-tag">${p}</span>`).join("")}</div>
+      ${b.note?`<div class="booking-note">"${b.note}"</div>`:""}
+    </div>`).join("")}</div>`;
+}
+
+function buildBookModal() {
+  const slot = state.modal;
+  const existing = getBooking(slot.date,slot.court,slot.time);
+  const selPlayers = state._modalPlayers || (existing?existing.players:[]);
+  const note = state._modalNote !== undefined ? state._modalNote : (existing?existing.note:"");
+
+  const playerBtns = state.players.map(p=>`
+    <button class="player-btn ${selPlayers.includes(p)?"selected":""}" data-player="${p}">${p}</button>
+  `).join("");
+
+  return `
+    <div class="overlay" id="overlayClose">
+      <div class="modal">
+        <div class="modal-header">
+          <div>
+            <div class="modal-title">${slot.court}</div>
+            <div class="modal-sub">${fmtDate(slot.date)} · ${slot.time}</div>
+          </div>
+          <button class="btn-close" id="closeModal">✕</button>
+        </div>
+        <div class="section-label">PLAYERS (max 4)</div>
+        <div class="player-select">${playerBtns}</div>
+        <div class="section-label">NOTE (optional)</div>
+        <input class="note-input" id="noteInput" placeholder="e.g. Bring your own balls" value="${note}" />
+        <div class="modal-actions">
+          ${existing?`<button class="btn-cancel-booking" id="cancelBooking">Cancel Booking</button>`:""}
+          <button class="btn-book" id="confirmBook" ${selPlayers.length===0?"disabled":""}>
+            ${existing?"Update Booking":"Book Court"}
+          </button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function buildPlayersModal() {
+  const list = state._editPlayers || [...state.players];
+  return `
+    <div class="overlay" id="overlayClose">
+      <div class="modal">
+        <div class="modal-header">
+          <div class="modal-title">Manage Players</div>
+          <button class="btn-close" id="closeModal">✕</button>
+        </div>
+        <div class="add-row">
+          <input class="add-input" id="newPlayerInput" placeholder="Add colleague name" />
+          <button class="btn-add" id="addPlayerBtn">Add</button>
+        </div>
+        <div id="playerList">
+          ${list.map(p=>`
+            <div class="player-row">
+              <span class="player-name">${p}</span>
+              <button class="btn-remove" data-remove="${p}">✕</button>
+            </div>`).join("")}
+        </div>
+        <button class="btn-save" id="savePlayers">Save Players</button>
+      </div>
+    </div>`;
+}
+
+// ── Event attachment ─────────────────────────────────────
+function attachEvents() {
+  // Tabs
+  document.querySelectorAll(".tab").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.tab=btn.dataset.tab; render(); });
+  });
+
+  // Date buttons
+  document.querySelectorAll(".date-btn").forEach(btn=>{
+    btn.addEventListener("click",()=>{ state.date=btn.dataset.date; render(); });
+  });
+
+  // Slot buttons
+  document.querySelectorAll(".slot:not(.past):not([disabled])").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      state.modal={date:state.date,court:btn.dataset.court,time:btn.dataset.time};
+      state._modalPlayers = null;
+      state._modalNote = undefined;
+      const ex = getBooking(state.date,btn.dataset.court,btn.dataset.time);
+      if (ex) { state._modalPlayers=[...ex.players]; state._modalNote=ex.note||""; }
+      render();
+    });
+  });
+
+  // Edit buttons in upcoming
+  document.querySelectorAll(".btn-edit").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      state.modal={date:btn.dataset.date,court:btn.dataset.court,time:btn.dataset.time};
+      const ex = getBooking(btn.dataset.date,btn.dataset.court,btn.dataset.time);
+      state._modalPlayers = ex?[...ex.players]:[];
+      state._modalNote = ex?ex.note||"":"";
+      render();
+    });
+  });
+
+  // Open players modal
+  const opBtn = document.getElementById("openPlayers");
+  if (opBtn) opBtn.addEventListener("click",()=>{ state.modal="players"; state._editPlayers=[...state.players]; render(); });
+
+  // Close modal
+  const closeBtn = document.getElementById("closeModal");
+  if (closeBtn) closeBtn.addEventListener("click",()=>{ state.modal=null; state._modalPlayers=null; state._modalNote=undefined; render(); });
+  const overlay = document.getElementById("overlayClose");
+  if (overlay) overlay.addEventListener("click",(e)=>{ if(e.target===overlay){state.modal=null;state._modalPlayers=null;state._modalNote=undefined;render();} });
+
+  // Player toggle in book modal
+  document.querySelectorAll(".player-btn").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const p = btn.dataset.player;
+      const cur = state._modalPlayers || [];
+      if (cur.includes(p)) state._modalPlayers = cur.filter(x=>x!==p);
+      else if (cur.length<4) state._modalPlayers = [...cur,p];
+      render();
+    });
+  });
+
+  // Note input
+  const noteEl = document.getElementById("noteInput");
+  if (noteEl) noteEl.addEventListener("input",e=>{ state._modalNote=e.target.value; });
+
+  // Confirm book
+  const confirmBtn = document.getElementById("confirmBook");
+  if (confirmBtn) confirmBtn.addEventListener("click",()=>{
+    const noteEl = document.getElementById("noteInput");
+    handleBook({
+      ...state.modal,
+      players: state._modalPlayers||[],
+      note: noteEl?noteEl.value:state._modalNote||""
+    });
+    state._modalPlayers=null; state._modalNote=undefined;
+  });
+
+  // Cancel booking
+  const cancelBtn = document.getElementById("cancelBooking");
+  if (cancelBtn) cancelBtn.addEventListener("click",()=>{
+    const ex = getBooking(state.modal.date,state.modal.court,state.modal.time);
+    if (ex) handleCancel(ex);
+  });
+
+  // Players modal
+  const addBtn = document.getElementById("addPlayerBtn");
+  if (addBtn) addBtn.addEventListener("click",()=>{
+    const inp = document.getElementById("newPlayerInput");
+    const v = inp.value.trim();
+    if (v && !state._editPlayers.includes(v)) {
+      state._editPlayers.push(v); inp.value=""; render();
+    }
+  });
+  const newInp = document.getElementById("newPlayerInput");
+  if (newInp) newInp.addEventListener("keydown",e=>{ if(e.key==="Enter") document.getElementById("addPlayerBtn")?.click(); });
+  document.querySelectorAll(".btn-remove").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      state._editPlayers = state._editPlayers.filter(x=>x!==btn.dataset.remove);
+      render();
+    });
+  });
+  const savePlayersBtn = document.getElementById("savePlayers");
+  if (savePlayersBtn) savePlayersBtn.addEventListener("click",()=>handleSavePlayers([...state._editPlayers]));
+}
+
+// ── Boot ─────────────────────────────────────────────────
+(async function() {
+  await loadData();
+  // Auto-add Telegram user to players list
+  const tgUser = getTgUser();
+  if (tgUser && !state.players.includes(tgUser)) {
+    state.players.unshift(tgUser);
+    await savePlayers();
+  }
+  render();
+})();
+</script>
+</body>
+</html>
